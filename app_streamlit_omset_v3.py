@@ -31,33 +31,38 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
 st.markdown("---")
 
 
-# --- SIDEBAR / MENU UTAMA ---
-st.sidebar.header("⚙️ Parameter Pengaturan")
+# --- PARAMETER PENGATURAN UTAMA (PINDAH KE HALAMAN TENGAH) ---
+st.subheader("⚙️ Parameter Pengaturan Data")
+col1, col2 = st.columns(2)
 
-# 1. Pilihan Jumlah Tanggal (1 - 31)
-jumlah_tanggal = st.sidebar.selectbox(
-    "Pilih Jumlah Tanggal (1 - 31):", options=list(range(1, 32)), index=0
-)
+with col1:
+  # 1. Pilihan Jumlah Tanggal (1 - 31)
+  jumlah_tanggal = st.selectbox(
+      "Pilih Jumlah Tanggal (1 - 31):", options=list(range(1, 32)), index=0
+  )
 
-# 2. Pilihan Bulan
-bulan_dict = {
-    "Januari": "jan",
-    "Februari": "feb",
-    "Maret": "mar",
-    "April": "apr",
-    "Mei": "mei",
-    "Juni": "jun",
-    "Juli": "jul",
-    "Agustus": "agu",
-    "September": "sep",
-    "Oktober": "okt",
-    "November": "nov",
-    "Desember": "des",
-}
-pilihan_bulan_nama = st.sidebar.selectbox(
-    "Pilih Nama Bulan:", options=list(bulan_dict.keys())
-)
-nama_bulan = bulan_dict[pilihan_bulan_nama]
+with col2:
+  # 2. Pilihan Bulan
+  bulan_dict = {
+      "Januari": "jan",
+      "Februari": "feb",
+      "Maret": "mar",
+      "April": "apr",
+      "Mei": "mei",
+      "Juni": "jun",
+      "Juli": "jul",
+      "Agustus": "agu",
+      "September": "sep",
+      "Oktober": "okt",
+      "November": "nov",
+      "Desember": "des",
+  }
+  pilihan_bulan_nama = st.selectbox(
+      "Pilih Nama Bulan:", options=list(bulan_dict.keys())
+  )
+  nama_bulan = bulan_dict[pilihan_bulan_nama]
+
+st.markdown("---")
 
 
 # --- FUNGSI PROSES DATA DARI DIREKTORI SEMENTARA ---
