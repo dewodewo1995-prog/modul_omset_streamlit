@@ -46,7 +46,7 @@ nama_bulan = bulan_dict[pilihan_bulan_nama]
 
 
 # --- FUNGSI PROSES DATA DARI DIREKTORI SEMENTARA ---
-def proses_gabung_dari_folder(source_dir, jml_tgl, bln):
+def proses_gabung_data_dari_folder(source_dir, jml_tgl, bln):
   df_list = []
   log_messages = []
 
@@ -88,7 +88,7 @@ with tab1:
   st.subheader("Proses Penggabungan & Template via Web")
   st.write(
       "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
-      " memasukkannya ke `template_omset.xlsx` yang ada di repository."
+      " memasukkannya ke `template_omset.xlsx` dari repository."
   )
 
   metode_upload = st.radio(
@@ -111,10 +111,8 @@ with tab1:
     )
 
   if st.button("🚀 Jalankan Proses Penggabungan", type="primary"):
-    # Gunakan Temporary Directory supaya bersih dan aman di server cloud
     with tempfile.TemporaryDirectory() as temp_dir:
       sumber_data_siap = False
-      logs = []
 
       if metode_upload == "📁 Upload File ZIP" and uploaded_zip is not None:
         with st.spinner("Mengekstrak file ZIP..."):
@@ -157,7 +155,7 @@ with tab1:
                     " repository GitHub!"
                 )
               else:
-                # Simpan hasil gabungan ke file output sementara untuk didownload
+                # Simpan hasil gabungan ke direktori sementara untuk siap di-download
                 output_file_path = os.path.join(
                     temp_dir, "hasil_template_omset.xlsx"
                 )
@@ -205,8 +203,6 @@ with tab2:
     if not target_file_upload:
       st.error("❌ Harap upload file Excel target terlebih dahulu!")
     else:
-      # Kita butuh data harian juga di tab 2, cek apakah user pakai metode zip atau file satuan
       st.info(
-          "💡 Pastikan data sumber harian sudah disiapkan (gunakan tab Proses"
-          " Baru untuk melakukan proses data)."
+          "💡 Pastikan data sumber harian sudah disiapkan di tab Proses Baru."
       )
