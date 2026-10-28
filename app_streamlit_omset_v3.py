@@ -5,7 +5,7 @@ import zipfile
 import pandas as pd
 import streamlit as st
 
-# Konfigurasi halaman web Streamlit (Diubah jadi 'wide' agar lebih padet dan lebar)
+# Konfigurasi halaman web Streamlit
 st.set_page_config(
     page_title="Rekap Omset Web", page_icon="📊", layout="wide"
 )
@@ -23,18 +23,18 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
     2. **Metode Upload Data**: 
        * Pilih metode **Upload Banyak File Excel** jika ingin memilih dan meng-upload file Excel harian satu per satu sekaligus.
        * Atau pilih metode **Upload File ZIP** jika file harian sudah dikompres menjadi satu file ZIP/RAR.
-    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem.
-    4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya. Jangan lupa lakukan upload data harian atau file ZIP/RAR pendukungnya.
+    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE`) akan ter-generate otomatis sesuai bulan dan tahun pilihan Anda.
+    4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
     5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** pada menu *Proses Baru*, atau klik **Jalankan Update Excel Target** pada menu *Update Existing* untuk memproses dan mendownload hasilnya.
     """)
 
 st.markdown("---")
 
 
-# --- PARAMETER PENGATURAN UTAMA (DIBUNGKUS KOTAK AGAR LEBIH PADET) ---
+# --- PARAMETER PENGATURAN UTAMA (DITAMBAH PILIHAN TAHUN) ---
 with st.container(border=True):
   st.subheader("⚙️ Parameter Pengaturan Data")
-  col1, col2 = st.columns(2)
+  col1, col2, col3 = st.columns(3)
 
   with col1:
     jumlah_tanggal = st.selectbox(
@@ -43,23 +43,28 @@ with st.container(border=True):
 
   with col2:
     bulan_dict = {
-        "Januari": "jan",
-        "Februari": "feb",
-        "Maret": "mar",
-        "April": "apr",
-        "Mei": "mei",
-        "Juni": "jun",
-        "Juli": "jul",
-        "Agustus": "agu",
-        "September": "sep",
-        "Oktober": "okt",
-        "November": "nov",
-        "Desember": "des",
+        "Januari": ("jan", 1),
+        "Februari": ("feb", 2),
+        "Maret": ("mar", 3),
+        "April": ("apr", 4),
+        "Mei": ("mei", 5),
+        "Juni": ("jun", 6),
+        "Juli": ("jul", 7),
+        "Agustus": ("agu", 8),
+        "September": ("sep", 9),
+        "Oktober": ("okt", 10),
+        "November": ("nov", 11),
+        "Desember": ("des", 12),
     }
     pilihan_bulan_nama = st.selectbox(
         "Pilih Nama Bulan:", options=list(bulan_dict.keys())
     )
-    nama_bulan = bulan_dict[pilihan_bulan_nama]
+    nama_bulan, angka_bulan = bulan_dict[pilihan_bulan_nama]
+
+  with col3:
+    pilihan_tahun = st.selectbox(
+        "Pilih Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
+    )
 
 st.markdown("---")
 
@@ -107,7 +112,7 @@ with tab1:
   st.subheader("Proses Penggabungan & Template via Web")
   st.write(
       "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
-      " memasukkannya ke `template_omset.xlsx` dari repository."
+      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi kolom DATE."
   )
 
   metode_upload = st.radio(
@@ -157,7 +162,7 @@ with tab1:
         st.error("❌ Harap upload file ZIP atau file Excel terlebih dahulu!")
 
       if sumber_data_siap:
-        with st.spinner("Sedang memproses data omset..."):
+        with st.spinner("Sedang memproses data omset & update kolom DATE..."):
           df_gabungan, logs = proses_gabung_data_dari_folder(
               temp_dir, jumlah_tanggal, nama_bulan
           )
@@ -182,25 +187,61 @@ with tab1:
                 )
                 sh.copy(template_path, output_file_path)
 
+                # --- OTOMATIS OVERWRITE KOLOM DATE DI TEMPLATE ---
+                # Membuat list tanggal format 'DD-mmm-YYYY' (Contoh: 01-Sep-2026)
+                date_list = []
+                # Nama bulan bahasa Inggris singkat untuk format excel (Jan, Feb, Mar, dst)
+                eng_months = [
+                    "",
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                ]
+                m_str = eng_months[angka_bulan]
+
+                for d in range(1, jumlah_tanggal + 1):
+                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
+                  date_list.append(date_str)
+
+                df_dates = pd.DataFrame({"DATE": date_list})
+
+                # Buka file excel template, timpa kolom DATE dan sheet statement
                 with pd.ExcelWriter(
                     output_file_path,
                     engine="openpyxl",
                     mode="a",
                     if_sheet_exists="replace",
                 ) as writer:
+                  # Timpa sheet DATE (sesuaikan nama sheet template kamu jika berbeda, misal sheet utama)
+                  # Asumsi sheet tanggal ada di sheet utama atau sheet 'Template'/'Sheet1'
+                  # Kita tulis dataframe tanggal ke sheet utama (sheet pertama)
+                  df_dates.to_excel(
+                      writer, sheet_name="Sheet1", index=False, startcol=0
+                  )
+                  # Tulis juga data statement omset
                   df_gabungan.to_excel(
                       writer, sheet_name="statement", index=False
                   )
 
                 st.success(
-                    "🎉 Proses Selesai! File berhasil digabungkan ke template."
+                    "🎉 Proses Selesai! Kolom DATE dan data omset berhasil"
+                    " diperbarui otomatis."
                 )
 
                 with open(output_file_path, "rb") as f:
                   st.download_button(
                       label="📥 Download Hasil Template Excel",
                       data=f,
-                      file_name="hasil_template_omset.xlsx",
+                      file_name=f"rekap_omset_{pilihan_bulan_nama}_{pilihan_tahun}.xlsx",
                       mime=(
                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                       ),
