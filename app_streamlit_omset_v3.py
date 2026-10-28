@@ -1,16 +1,23 @@
 import os
 import shutil as sh
-import tkinter as tk
-from tkinter import filedialog
 import pandas as pd
 import streamlit as st
+
+# --- COBA IMPORT TKINTER (Hanya jalan di komputer lokal, aman dari error di Cloud) ---
+try:
+  import tkinter as tk
+  from tkinter import filedialog
+
+  HAS_TKINTER = True
+except ImportError:
+  HAS_TKINTER = False
 
 # Konfigurasi halaman web Streamlit
 st.set_page_config(
     page_title="Rekap Omset Web", page_icon="📊", layout="centered"
 )
 
-st.title("📊 Aplikasi Rekap Omset (Versi Web Lokal)")
+st.title("📊 Aplikasi Rekap Omset (Versi Web)")
 st.write(
     "Upload file-file Excel harian atau pilih direktori/file langsung dari"
     " sistem kamu!"
@@ -19,6 +26,8 @@ st.write(
 
 # --- FUNGSI HELPER UNTUK MEMANGGIL WINDOWS DIALOG ---
 def pilih_folder_lokal():
+  if not HAS_TKINTER:
+    return ""
   root = tk.Tk()
   root.withdraw()
   root.attributes("-topmost", True)
@@ -28,6 +37,8 @@ def pilih_folder_lokal():
 
 
 def pilih_file_target():
+  if not HAS_TKINTER:
+    return ""
   root = tk.Tk()
   root.withdraw()
   root.attributes("-topmost", True)
@@ -75,10 +86,16 @@ st.sidebar.subheader("📁 Direktori Folder Sumber")
 if "path_folder" not in st.session_state:
   st.session_state.path_folder = ""
 
-if st.sidebar.button("📂 Pilih Folder via Dialog"):
-  selected_dir = pilih_folder_lokal()
-  if selected_dir:
-    st.session_state.path_folder = selected_dir
+# Tombol dialog hanya akan aktif/muncul jika dijalankan secara lokal
+if HAS_TKINTER:
+  if st.sidebar.button("📂 Pilih Folder via Dialog"):
+    selected_dir = pilih_folder_lokal()
+    if selected_dir:
+      st.session_state.path_folder = selected_dir
+else:
+  st.sidebar.info(
+      "💡 Mode Web Cloud: Ketik path atau gunakan input manual di bawah."
+  )
 
 path_folder = st.sidebar.text_input(
     "Path Folder Lokal:",
@@ -203,15 +220,14 @@ with tab2:
       " tujuan yang berbeda."
   )
 
-  # Inisialisasi session_state untuk target file update
   if "target_file_path" not in st.session_state:
     st.session_state.target_file_path = ""
 
-  # Tombol pilih file target via dialog Windows
-  if st.button("📂 Pilih File Excel Target via Dialog"):
-    selected_file = pilih_file_target()
-    if selected_file:
-      st.session_state.target_file_path = selected_file
+  if HAS_TKINTER:
+    if st.button("📂 Pilih File Excel Target via Dialog"):
+      selected_file = pilih_file_target()
+      if selected_file:
+        st.session_state.target_file_path = selected_file
 
   target_file_path = st.text_input(
       "Masukkan Path Lengkap File Excel Target untuk Di-update:",
