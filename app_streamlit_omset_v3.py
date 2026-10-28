@@ -94,4 +94,224 @@ def proses_gabung_data_dari_folder(source_dir, jml_tgl, bln):
   return df_gabungan, log_messages
 
 
-# --- AREA TAMPILAN UT
+# --- AREA TAMPILAN UTAMA (TABS) ---
+tab1, tab2 = st.tabs(
+    ["🚀 Proses Baru (Upload Web)", "🔄 Update Excel Existing (Web)"]
+)
+
+with tab1:
+  st.subheader("Proses Penggabungan & Template via Web")
+  st.write(
+      "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
+      " memasukkannya ke `template_omset.xlsx` dari repository."
+  )
+
+  metode_upload = st.radio(
+      "Pilih Metode Upload Data Harian (Tab 1):",
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      key="metode_tab1",
+  )
+
+  uploaded_zip = None
+  uploaded_files = None
+
+  if metode_upload == "📁 Upload File ZIP":
+    uploaded_zip = st.file_uploader(
+        "Upload file .zip yang berisi file-file harian:",
+        type=["zip"],
+        key="zip_tab1",
+    )
+  else:
+    uploaded_files = st.file_uploader(
+        "Upload file-file Excel harian (bisa pilih banyak sekaligus):",
+        type=["xlsx", "xls"],
+        accept_multiple_files=True,
+        key="files_tab1",
+    )
+
+  if st.button("🚀 Jalankan Proses Penggabungan", type="primary"):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      sumber_data_siap = False
+
+      if metode_upload == "📁 Upload File ZIP" and uploaded_zip is not None:
+        with st.spinner("Mengekstrak file ZIP..."):
+          with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+          sumber_data_siap = True
+
+      elif (
+          metode_upload == "📄 Upload Banyak File Excel (.xlsx/.xls)"
+          and uploaded_files
+      ):
+        with st.spinner("Menyiapkan file yang di-upload..."):
+          for uf in uploaded_files:
+            temp_file_path = os.path.join(temp_dir, uf.name)
+            with open(temp_file_path, "wb") as f:
+              f.write(uf.getbuffer())
+          sumber_data_siap = True
+      else:
+        st.error("❌ Harap upload file ZIP atau file Excel terlebih dahulu!")
+
+      if sumber_data_siap:
+        with st.spinner("Sedang memproses data omset..."):
+          df_gabungan, logs = proses_gabung_data_dari_folder(
+              temp_dir, jumlah_tanggal, nama_bulan
+          )
+
+          for log in logs:
+            st.text(log)
+
+          if df_gabungan is not None:
+            try:
+              template_path = os.path.join(
+                  os.path.dirname(__file__), "template_omset.xlsx"
+              )
+
+              if not os.path.exists(template_path):
+                st.error(
+                    "❌ ERROR: File `template_omset.xlsx` belum di-upload ke"
+                    " repository GitHub!"
+                )
+              else:
+                output_file_path = os.path.join(
+                    temp_dir, "hasil_template_omset.xlsx"
+                )
+                sh.copy(template_path, output_file_path)
+
+                with pd.ExcelWriter(
+                    output_file_path,
+                    engine="openpyxl",
+                    mode="a",
+                    if_sheet_exists="replace",
+                ) as writer:
+                  df_gabungan.to_excel(
+                      writer, sheet_name="statement", index=False
+                  )
+
+                st.success(
+                    "🎉 Proses Selesai! File berhasil digabungkan ke template."
+                )
+
+                with open(output_file_path, "rb") as f:
+                  st.download_button(
+                      label="📥 Download Hasil Template Excel",
+                      data=f,
+                      file_name="hasil_template_omset.xlsx",
+                      mime=(
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      ),
+                  )
+            except Exception as e:
+              st.error(f"❌ Terjadi kesalahan saat memproses Excel: {e}")
+
+
+with tab2:
+  st.subheader("Update File Excel Target Tertentu via Web")
+  st.write(
+      "Upload file Excel target yang ingin kamu *update* isinya secara"
+      " langsung beserta data harian sumbernya."
+  )
+
+  target_file_upload = st.file_uploader(
+      "Upload File Excel Target (.xlsx/.xls):",
+      type=["xlsx", "xls"],
+      key="target_excel",
+  )
+
+  metode_upload_tab2 = st.radio(
+      "Pilih Metode Upload Data Harian (Tab 2):",
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      key="metode_tab2",
+  )
+
+  uploaded_zip_tab2 = None
+  uploaded_files_tab2 = None
+
+  if metode_upload_tab2 == "📁 Upload File ZIP":
+    uploaded_zip_tab2 = st.file_uploader(
+        "Upload file .zip data harian untuk update target:",
+        type=["zip"],
+        key="zip_tab2",
+    )
+  else:
+    uploaded_files_tab2 = st.file_uploader(
+        "Upload file-file Excel harian untuk update target:",
+        type=["xlsx", "xls"],
+        accept_multiple_files=True,
+        key="files_tab2",
+    )
+
+  if st.button("🔄 Jalankan Update Excel Target", type="primary"):
+    if not target_file_upload:
+      st.error("❌ Harap upload file Excel target terlebih dahulu!")
+    else:
+      with tempfile.TemporaryDirectory() as temp_dir:
+        sumber_data_siap = False
+
+        if (
+            metode_upload_tab2 == "📁 Upload File ZIP"
+            and uploaded_zip_tab2 is not None
+        ):
+          with st.spinner("Mengekstrak file ZIP..."):
+            with zipfile.ZipFile(uploaded_zip_tab2, "r") as zip_ref:
+              zip_ref.extractall(temp_dir)
+            sumber_data_siap = True
+
+        elif (
+            metode_upload_tab2 == "📄 Upload Banyak File Excel (.xlsx/.xls)"
+            and uploaded_files_tab2
+        ):
+          with st.spinner("Menyiapkan file yang di-upload..."):
+            for uf in uploaded_files_tab2:
+              temp_file_path = os.path.join(temp_dir, uf.name)
+              with open(temp_file_path, "wb") as f:
+                f.write(uf.getbuffer())
+            sumber_data_siap = True
+        else:
+          st.error(
+              "❌ Harap upload file ZIP atau file Excel sumber harian terlebih"
+              " dahulu!"
+          )
+
+        if sumber_data_siap:
+          with st.spinner("Sedang memperbarui file Excel target..."):
+            df_gabungan, logs = proses_gabung_data_dari_folder(
+                temp_dir, jumlah_tanggal, nama_bulan
+            )
+
+            for log in logs:
+              st.text(log)
+
+            if df_gabungan is not None:
+              try:
+                target_path_local = os.path.join(
+                    temp_dir, target_file_upload.name
+                )
+                with open(target_path_local, "wb") as f:
+                  f.write(target_file_upload.getbuffer())
+
+                with pd.ExcelWriter(
+                    target_path_local,
+                    engine="openpyxl",
+                    mode="a",
+                    if_sheet_exists="replace",
+                ) as writer:
+                  df_gabungan.to_excel(
+                      writer, sheet_name="statement", index=False
+                  )
+
+                st.success("🎉 Berhasil memperbarui file Excel target!")
+
+                with open(target_path_local, "rb") as f:
+                  st.download_button(
+                      label="📥 Download File Target yang Telah Di-update",
+                      data=f,
+                      file_name=target_file_upload.name,
+                      mime=(
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      ),
+                  )
+              except Exception as e:
+                st.error(
+                    f"❌ Terjadi kesalahan saat memperbarui file target: {e}"
+                )
