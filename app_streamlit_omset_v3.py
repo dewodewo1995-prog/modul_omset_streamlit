@@ -212,4 +212,4 @@ with tab2:
   uploaded_zip_tab2 = None
   uploaded_files_tab2 = None
 
-  if metode_upload_tab2 == "📁 Upload File
+  if metode_upload_tab2 == "📁 Upload File"
