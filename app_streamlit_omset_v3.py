@@ -92,8 +92,9 @@ with tab1:
   )
 
   metode_upload = st.radio(
-      "Pilih Metode Upload Data Harian:",
+      "Pilih Metode Upload Data Harian (Tab 1):",
       ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      key="metode_tab1",
   )
 
   uploaded_zip = None
@@ -101,13 +102,16 @@ with tab1:
 
   if metode_upload == "📁 Upload File ZIP":
     uploaded_zip = st.file_uploader(
-        "Upload file .zip yang berisi file-file harian:", type=["zip"]
+        "Upload file .zip yang berisi file-file harian:",
+        type=["zip"],
+        key="zip_tab1",
     )
   else:
     uploaded_files = st.file_uploader(
         "Upload file-file Excel harian (bisa pilih banyak sekaligus):",
         type=["xlsx", "xls"],
         accept_multiple_files=True,
+        key="files_tab1",
     )
 
   if st.button("🚀 Jalankan Proses Penggabungan", type="primary"):
@@ -144,7 +148,6 @@ with tab1:
 
           if df_gabungan is not None:
             try:
-              # Ambil template langsung dari repository GitHub
               template_path = os.path.join(
                   os.path.dirname(__file__), "template_omset.xlsx"
               )
@@ -155,7 +158,6 @@ with tab1:
                     " repository GitHub!"
                 )
               else:
-                # Simpan hasil gabungan ke direktori sementara untuk siap di-download
                 output_file_path = os.path.join(
                     temp_dir, "hasil_template_omset.xlsx"
                 )
@@ -192,17 +194,22 @@ with tab2:
   st.subheader("Update File Excel Target Tertentu via Web")
   st.write(
       "Upload file Excel target yang ingin kamu *update* isinya secara"
-      " langsung."
+      " langsung beserta data harian sumbernya."
   )
 
   target_file_upload = st.file_uploader(
-      "Upload File Excel Target (.xlsx/.xls):", type=["xlsx", "xls"]
+      "Upload File Excel Target (.xlsx/.xls):",
+      type=["xlsx", "xls"],
+      key="target_excel",
   )
 
-  if st.button("🔄 Jalankan Update Excel Target"):
-    if not target_file_upload:
-      st.error("❌ Harap upload file Excel target terlebih dahulu!")
-    else:
-      st.info(
-          "💡 Pastikan data sumber harian sudah disiapkan di tab Proses Baru."
-      )
+  metode_upload_tab2 = st.radio(
+      "Pilih Metode Upload Data Harian (Tab 2):",
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      key="metode_tab2",
+  )
+
+  uploaded_zip_tab2 = None
+  uploaded_files_tab2 = None
+
+  if metode_upload_tab2 == "📁 Upload File
