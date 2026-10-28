@@ -2,6 +2,7 @@ import os
 import shutil as sh
 import tempfile
 import zipfile
+import openpyxl
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +24,7 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
     2. **Metode Upload Data**: 
        * Pilih metode **Upload Banyak File Excel** jika ingin memilih dan meng-upload file Excel harian satu per satu sekaligus.
        * Atau pilih metode **Upload File ZIP** jika file harian sudah dikompres menjadi satu file ZIP/RAR.
-    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE`) akan ter-generate otomatis sesuai bulan dan tahun pilihan Anda.
+    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan ter-generate otomatis sesuai bulan dan tahun pilihan Anda.
     4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
     5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** pada menu *Proses Baru*, atau klik **Jalankan Update Excel Target** pada menu *Update Existing* untuk memproses dan mendownload hasilnya.
     """)
@@ -31,7 +32,7 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
 st.markdown("---")
 
 
-# --- PARAMETER PENGATURAN UTAMA (DITAMBAH PILIHAN TAHUN) ---
+# --- PARAMETER PENGATURAN UTAMA ---
 with st.container(border=True):
   st.subheader("⚙️ Parameter Pengaturan Data")
   col1, col2, col3 = st.columns(3)
@@ -63,7 +64,7 @@ with st.container(border=True):
 
   with col3:
     pilihan_tahun = st.selectbox(
-        "Pilih Tahun:", options=[2024, 2025, 2026, 2027, 2038], index=0
+        "Pilih Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
     )
 
 st.markdown("---")
@@ -112,7 +113,8 @@ with tab1:
   st.subheader("Proses Penggabungan & Template via Web")
   st.write(
       "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
-      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi kolom DATE."
+      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi kolom DATE"
+      " dari sel C8."
   )
 
   metode_upload = st.radio(
@@ -187,10 +189,14 @@ with tab1:
                 )
                 sh.copy(template_path, output_file_path)
 
-                # --- OTOMATIS OVERWRITE KOLOM DATE DI TEMPLATE ---
-                # Membuat list tanggal format 'DD-mmm-YYYY' (Contoh: 01-Sep-2026)
-                date_list = []
-                # Nama bulan bahasa Inggris singkat untuk format excel (Jan, Feb, Mar, dst)
+                # --- LOAD OPENPYXL & TARGETKAN SHEET ANALISA (KOLOM C, BARIS 8) ---
+                wb = openpyxl.load_workbook(output_file_path)
+                if "ANALISA" in wb.sheetnames:
+                  ws = wb["ANALISA"]
+                else:
+                  ws = wb.active  # Fallback ke sheet aktif jika nama ANALISA berbeda
+
+                # List singkatan bulan bahasa Inggris
                 eng_months = [
                     "",
                     "Jan",
@@ -208,33 +214,32 @@ with tab1:
                 ]
                 m_str = eng_months[angka_bulan]
 
+                start_row = 8  # Mulai dari baris 8
+                col_index = 3  # Kolom C adalah kolom ke-3
+
                 for d in range(1, jumlah_tanggal + 1):
                   date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
-                  date_list.append(date_str)
+                  # Menulis langsung ke Kolom C pada baris ke-(8 + d - 1)
+                  ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
 
-                df_dates = pd.DataFrame({"DATE": date_list})
+                # Simpan perubahan openpyxl ke file output
+                wb.save(output_file_path)
 
-                # Buka file excel template, timpa kolom DATE dan sheet statement
+                # Masukkan sheet statement menggunakan pandas
                 with pd.ExcelWriter(
                     output_file_path,
                     engine="openpyxl",
                     mode="a",
                     if_sheet_exists="replace",
                 ) as writer:
-                  # Timpa sheet DATE (sesuaikan nama sheet template kamu jika berbeda, misal sheet utama)
-                  # Asumsi sheet tanggal ada di sheet utama atau sheet 'Template'/'Sheet1'
-                  # Kita tulis dataframe tanggal ke sheet utama (sheet pertama)
-                  df_dates.to_excel(
-                      writer, sheet_name="Sheet1", index=False, startcol=0
-                  )
-                  # Tulis juga data statement omset
                   df_gabungan.to_excel(
                       writer, sheet_name="statement", index=False
                   )
 
                 st.success(
-                    "🎉 Proses Selesai! Kolom DATE dan data omset berhasil"
-                    " diperbarui otomatis."
+                    "🎉 Proses Selesai! Kolom DATE (C8 ke bawah) berhasil"
+                    f" di-overwrite ke bulan {pilihan_bulan_nama}"
+                    f" {pilihan_tahun}."
                 )
 
                 with open(output_file_path, "rb") as f:
