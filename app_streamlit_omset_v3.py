@@ -24,7 +24,7 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
     2. **Metode Upload Data**: 
        * Pilih metode **Upload Banyak File Excel** jika ingin memilih dan meng-upload file Excel harian satu per satu sekaligus.
        * Atau pilih metode **Upload File ZIP** jika file harian sudah dikompres menjadi satu file ZIP/RAR.
-    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan ter-generate otomatis sesuai bulan dan tahun pilihan Anda.
+    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan ter-generate otomatis penuh sampai tanggal terakhir bulan pilihan Anda.
     4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
     5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** pada menu *Proses Baru*, atau klik **Jalankan Update Excel Target** pada menu *Update Existing* untuk memproses dan mendownload hasilnya.
     """)
@@ -113,8 +113,8 @@ with tab1:
   st.subheader("Proses Penggabungan & Template via Web")
   st.write(
       "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
-      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi kolom DATE"
-      " dari sel C8."
+      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi penuh kolom"
+      " DATE dari sel C8."
   )
 
   metode_upload = st.radio(
@@ -189,14 +189,13 @@ with tab1:
                 )
                 sh.copy(template_path, output_file_path)
 
-                # --- LOAD OPENPYXL & TARGETKAN SHEET ANALISA (KOLOM C, BARIS 8) ---
+                # --- LOAD OPENPYXL & TARGETKAN SHEET ANALISA (KOLOM C, BARIS 8 SAMPAI PENUH) ---
                 wb = openpyxl.load_workbook(output_file_path)
                 if "ANALISA" in wb.sheetnames:
                   ws = wb["ANALISA"]
                 else:
-                  ws = wb.active  # Fallback ke sheet aktif jika nama ANALISA berbeda
+                  ws = wb.active
 
-                # List singkatan bulan bahasa Inggris
                 eng_months = [
                     "",
                     "Jan",
@@ -215,17 +214,15 @@ with tab1:
                 m_str = eng_months[angka_bulan]
 
                 start_row = 8  # Mulai dari baris 8
-                col_index = 3  # Kolom C adalah kolom ke-3
+                col_index = 3  # Kolom C
 
+                # Mengisi tanggal secara penuh berdasarkan jumlah_tanggal yang dipilih (misal 30/31 hari)
                 for d in range(1, jumlah_tanggal + 1):
                   date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
-                  # Menulis langsung ke Kolom C pada baris ke-(8 + d - 1)
                   ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
 
-                # Simpan perubahan openpyxl ke file output
                 wb.save(output_file_path)
 
-                # Masukkan sheet statement menggunakan pandas
                 with pd.ExcelWriter(
                     output_file_path,
                     engine="openpyxl",
@@ -237,9 +234,9 @@ with tab1:
                   )
 
                 st.success(
-                    "🎉 Proses Selesai! Kolom DATE (C8 ke bawah) berhasil"
-                    f" di-overwrite ke bulan {pilihan_bulan_nama}"
-                    f" {pilihan_tahun}."
+                    "🎉 Proses Selesai! Kolom DATE dari C8 sampai tanggal"
+                    f" {jumlah_tanggal} berhasil di-generate otomatis penuh"
+                    f" untuk bulan {pilihan_bulan_nama} {pilihan_tahun}."
                 )
 
                 with open(output_file_path, "rb") as f:
