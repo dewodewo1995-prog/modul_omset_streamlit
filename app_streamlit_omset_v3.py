@@ -3,7 +3,7 @@ import shutil as sh
 import pandas as pd
 import streamlit as st
 
-# --- COBA IMPORT TKINTER (Hanya jalan di komputer lokal, aman dari error di Cloud) ---
+# --- COBA IMPORT TKINTER (Hanya jalan di komputer lokal) ---
 try:
   import tkinter as tk
   from tkinter import filedialog
@@ -86,7 +86,6 @@ st.sidebar.subheader("📁 Direktori Folder Sumber")
 if "path_folder" not in st.session_state:
   st.session_state.path_folder = ""
 
-# Tombol dialog hanya akan aktif/muncul jika dijalankan secara lokal
 if HAS_TKINTER:
   if st.sidebar.button("📂 Pilih Folder via Dialog"):
     selected_dir = pilih_folder_lokal()
@@ -94,7 +93,7 @@ if HAS_TKINTER:
       st.session_state.path_folder = selected_dir
 else:
   st.sidebar.info(
-      "💡 Mode Web Cloud: Ketik path atau gunakan input manual di bawah."
+      "💡 Mode Web Cloud: Ketik path folder sumber data harian di bawah."
   )
 
 path_folder = st.sidebar.text_input(
@@ -106,8 +105,7 @@ path_folder = st.sidebar.text_input(
 st.session_state.path_folder = path_folder
 
 st.sidebar.caption(
-    "Pastikan file harian (1_jan.xlsx, dst) dan template_omset.xlsx berada di"
-    " dalam folder ini."
+    "Pastikan file harian (1_jan.xlsx, dst) berada di folder sumber ini."
 )
 
 
@@ -141,19 +139,19 @@ def proses_gabung_data(path, jml_tgl, bln):
 
 
 # --- AREA TAMPILAN UTAMA (TABS) ---
-tab1, tab2 = st.tabs(["🚀 Proses Baru (Template Folder)", "🔄 Update Excel Existing"])
+tab1, tab2 = st.tabs(["🚀 Proses Baru (Template Repo)", "🔄 Update Excel Existing"])
 
 with tab1:
-  st.subheader("Proses Penggabungan dari Folder Lokal")
+  st.subheader("Proses Penggabungan & Template dari Repository")
   st.write(
-      "Sistem akan membaca file harian dari folder, memasukkannya ke"
-      " `template_omset.xlsx`, lalu menghasilkan file output di folder"
-      " `output/`."
+      "Sistem akan membaca file harian dari folder lokal, memasukkannya ke"
+      " `template_omset.xlsx` bawaan repo, lalu menyediakan tombol download"
+      " hasilnya."
   )
 
   if st.button("🚀 Jalankan Proses Baru", type="primary"):
     if not path_folder or not os.path.exists(path_folder):
-      st.error("❌ ERROR: Path folder tidak valid atau kosong!")
+      st.error("❌ ERROR: Path folder sumber data tidak valid atau kosong!")
     else:
       with st.spinner("Sedang memproses data..."):
         df_gabungan, logs = proses_gabung_data(
@@ -165,42 +163,42 @@ with tab1:
 
         if df_gabungan is not None:
           try:
-            cache_path = os.path.join(path_folder, "_cache_gabungan.xlsx")
-            df_gabungan.to_excel(cache_path, index=False)
+            # Mengambil template_omset.xlsx langsung dari direktori repo (tempat file python berada)
+            template_path = os.path.join(
+                os.path.dirname(__file__), "template_omset.xlsx"
+            )
 
-            template_path = os.path.join(path_folder, "template_omset.xlsx")
             if not os.path.exists(template_path):
               st.error(
                   "❌ ERROR: File `template_omset.xlsx` tidak ditemukan di"
-                  " dalam folder tersebut!"
+                  " dalam repository GitHub!"
               )
             else:
+              # Buat salinan template di memory/temp supaya file asli di repo aman
+              output_file_path = os.path.join(
+                  path_folder, "hasil_template_omset.xlsx"
+              )
+              sh.copy(template_path, output_file_path)
+
+              # Masukkan data gabungan ke file salinan tersebut
               with pd.ExcelWriter(
-                  template_path,
+                  output_file_path,
                   engine="openpyxl",
                   mode="a",
                   if_sheet_exists="replace",
               ) as writer:
                 df_gabungan.to_excel(writer, sheet_name="statement", index=False)
 
-              output_folder = os.path.join(path_folder, "output")
-              os.makedirs(output_folder, exist_ok=True)
-
-              output_file_path = os.path.join(
-                  output_folder, "hasil_template.xlsx"
-              )
-              sh.copy(template_path, output_file_path)
-
               st.success(
-                  "🎉 Proses Selesai! File berhasil disimpan dan disalin ke"
-                  f" folder `output/`: \n`{output_file_path}`"
+                  "🎉 Proses Selesai! File berhasil digabungkan ke template"
+                  " repository."
               )
 
               with open(output_file_path, "rb") as f:
                 st.download_button(
                     label="📥 Download Hasil Template Excel",
                     data=f,
-                    file_name="hasil_template.xlsx",
+                    file_name="hasil_template_omset.xlsx",
                     mime=(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     ),
