@@ -5,9 +5,9 @@ import zipfile
 import pandas as pd
 import streamlit as st
 
-# Konfigurasi halaman web Streamlit
+# Konfigurasi halaman web Streamlit (Diubah jadi 'wide' agar lebih padet dan lebar)
 st.set_page_config(
-    page_title="Rekap Omset Web", page_icon="📊", layout="centered"
+    page_title="Rekap Omset Web", page_icon="📊", layout="wide"
 )
 
 st.title("📊 Aplikasi Rekap Omset (Versi Web Cloud)")
@@ -31,36 +31,35 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
 st.markdown("---")
 
 
-# --- PARAMETER PENGATURAN UTAMA (PINDAH KE HALAMAN TENGAH) ---
-st.subheader("⚙️ Parameter Pengaturan Data")
-col1, col2 = st.columns(2)
+# --- PARAMETER PENGATURAN UTAMA (DIBUNGKUS KOTAK AGAR LEBIH PADET) ---
+with st.container(border=True):
+  st.subheader("⚙️ Parameter Pengaturan Data")
+  col1, col2 = st.columns(2)
 
-with col1:
-  # 1. Pilihan Jumlah Tanggal (1 - 31)
-  jumlah_tanggal = st.selectbox(
-      "Pilih Jumlah Tanggal (1 - 31):", options=list(range(1, 32)), index=0
-  )
+  with col1:
+    jumlah_tanggal = st.selectbox(
+        "Pilih Jumlah Tanggal (1 - 31):", options=list(range(1, 32)), index=0
+    )
 
-with col2:
-  # 2. Pilihan Bulan
-  bulan_dict = {
-      "Januari": "jan",
-      "Februari": "feb",
-      "Maret": "mar",
-      "April": "apr",
-      "Mei": "mei",
-      "Juni": "jun",
-      "Juli": "jul",
-      "Agustus": "agu",
-      "September": "sep",
-      "Oktober": "okt",
-      "November": "nov",
-      "Desember": "des",
-  }
-  pilihan_bulan_nama = st.selectbox(
-      "Pilih Nama Bulan:", options=list(bulan_dict.keys())
-  )
-  nama_bulan = bulan_dict[pilihan_bulan_nama]
+  with col2:
+    bulan_dict = {
+        "Januari": "jan",
+        "Februari": "feb",
+        "Maret": "mar",
+        "April": "apr",
+        "Mei": "mei",
+        "Juni": "jun",
+        "Juli": "jul",
+        "Agustus": "agu",
+        "September": "sep",
+        "Oktober": "okt",
+        "November": "nov",
+        "Desember": "des",
+    }
+    pilihan_bulan_nama = st.selectbox(
+        "Pilih Nama Bulan:", options=list(bulan_dict.keys())
+    )
+    nama_bulan = bulan_dict[pilihan_bulan_nama]
 
 st.markdown("---")
 
