@@ -1,53 +1,19 @@
 import os
 import shutil as sh
+import tempfile
+import zipfile
 import pandas as pd
 import streamlit as st
-
-# --- COBA IMPORT TKINTER (Hanya jalan di komputer lokal) ---
-try:
-  import tkinter as tk
-  from tkinter import filedialog
-
-  HAS_TKINTER = True
-except ImportError:
-  HAS_TKINTER = False
 
 # Konfigurasi halaman web Streamlit
 st.set_page_config(
     page_title="Rekap Omset Web", page_icon="📊", layout="centered"
 )
 
-st.title("📊 Aplikasi Rekap Omset (Versi Web)")
+st.title("📊 Aplikasi Rekap Omset (Versi Web Cloud)")
 st.write(
-    "Upload file-file Excel harian atau pilih direktori/file langsung dari"
-    " sistem kamu!"
+    "Upload file ZIP atau file-file Excel harian langsung melalui browser!"
 )
-
-
-# --- FUNGSI HELPER UNTUK MEMANGGIL WINDOWS DIALOG ---
-def pilih_folder_lokal():
-  if not HAS_TKINTER:
-    return ""
-  root = tk.Tk()
-  root.withdraw()
-  root.attributes("-topmost", True)
-  folder_path = filedialog.askdirectory(title="Pilih Folder Data Omset")
-  root.destroy()
-  return folder_path
-
-
-def pilih_file_target():
-  if not HAS_TKINTER:
-    return ""
-  root = tk.Tk()
-  root.withdraw()
-  root.attributes("-topmost", True)
-  file_path = filedialog.askopenfilename(
-      title="Pilih File Excel Target",
-      filetypes=[("Excel Files", "*.xlsx *.xls")],
-  )
-  root.destroy()
-  return file_path
 
 
 # --- SIDEBAR / MENU UTAMA ---
@@ -78,58 +44,33 @@ pilihan_bulan_nama = st.sidebar.selectbox(
 )
 nama_bulan = bulan_dict[pilihan_bulan_nama]
 
-st.sidebar.markdown("---")
 
-# 3. Bagian Pilih Folder dengan Tombol Dialog
-st.sidebar.subheader("📁 Direktori Folder Sumber")
-
-if "path_folder" not in st.session_state:
-  st.session_state.path_folder = ""
-
-if HAS_TKINTER:
-  if st.sidebar.button("📂 Pilih Folder via Dialog"):
-    selected_dir = pilih_folder_lokal()
-    if selected_dir:
-      st.session_state.path_folder = selected_dir
-else:
-  st.sidebar.info(
-      "💡 Mode Web Cloud: Ketik path folder sumber data harian di bawah."
-  )
-
-path_folder = st.sidebar.text_input(
-    "Path Folder Lokal:",
-    value=st.session_state.path_folder,
-    placeholder="Contoh: D:/DataOmset",
-)
-
-st.session_state.path_folder = path_folder
-
-st.sidebar.caption(
-    "Pastikan file harian (1_jan.xlsx, dst) berada di folder sumber ini."
-)
-
-
-# --- FUNGSI UTAMA PENGGABUNGAN ---
-def proses_gabung_data(path, jml_tgl, bln):
+# --- FUNGSI PROSES DATA DARI DIREKTORI SEMENTARA ---
+def proses_gabung_dari_folder(source_dir, jml_tgl, bln):
   df_list = []
   log_messages = []
 
   for i in range(1, jml_tgl + 1):
-    file_base = os.path.join(path, f"{i}_{bln}")
+    file_base = os.path.join(source_dir, f"{i}_{bln}")
     file_path_xlsx = file_base + ".xlsx"
     file_path_xls = file_base + ".xls"
 
+    target_file = None
     if os.path.exists(file_path_xlsx):
-      df = pd.read_excel(file_path_xlsx, sheet_name="Sheet1", header=0)
+      target_file = file_path_xlsx
     elif os.path.exists(file_path_xls):
-      df = pd.read_excel(file_path_xls, sheet_name="Sheet1", header=0)
+      target_file = file_path_xls
+
+    if target_file:
+      try:
+        df = pd.read_excel(target_file, sheet_name="Sheet1", header=0)
+        df["tanggal"] = i
+        df_list.append(df)
+        log_messages.append(f"✅ Berhasil memproses tanggal: {i}")
+      except Exception as e:
+        log_messages.append(f"❌ Error membaca file tanggal {i}: {e}")
     else:
       log_messages.append(f"❌ File Excel tanggal {i}_{bln} tidak ditemukan.")
-      continue
-
-    df["tanggal"] = i
-    df_list.append(df)
-    log_messages.append(f"✅ Berhasil memproses tanggal: {i}")
 
   if not df_list:
     return None, log_messages
@@ -139,143 +80,133 @@ def proses_gabung_data(path, jml_tgl, bln):
 
 
 # --- AREA TAMPILAN UTAMA (TABS) ---
-tab1, tab2 = st.tabs(["🚀 Proses Baru (Template Repo)", "🔄 Update Excel Existing"])
+tab1, tab2 = st.tabs(
+    ["🚀 Proses Baru (Upload Web)", "🔄 Update Excel Existing (Web)"]
+)
 
 with tab1:
-  st.subheader("Proses Penggabungan & Template dari Repository")
+  st.subheader("Proses Penggabungan & Template via Web")
   st.write(
-      "Sistem akan membaca file harian dari folder lokal, memasukkannya ke"
-      " `template_omset.xlsx` bawaan repo, lalu menyediakan tombol download"
-      " hasilnya."
+      "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
+      " memasukkannya ke `template_omset.xlsx` yang ada di repository."
   )
 
-  if st.button("🚀 Jalankan Proses Baru", type="primary"):
-    if not path_folder or not os.path.exists(path_folder):
-      st.error("❌ ERROR: Path folder sumber data tidak valid atau kosong!")
-    else:
-      with st.spinner("Sedang memproses data..."):
-        df_gabungan, logs = proses_gabung_data(
-            path_folder, jumlah_tanggal, nama_bulan
-        )
+  metode_upload = st.radio(
+      "Pilih Metode Upload Data Harian:",
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+  )
 
-        for log in logs:
-          st.text(log)
+  uploaded_zip = None
+  uploaded_files = None
 
-        if df_gabungan is not None:
-          try:
-            # Mengambil template_omset.xlsx langsung dari direktori repo (tempat file python berada)
-            template_path = os.path.join(
-                os.path.dirname(__file__), "template_omset.xlsx"
-            )
+  if metode_upload == "📁 Upload File ZIP":
+    uploaded_zip = st.file_uploader(
+        "Upload file .zip yang berisi file-file harian:", type=["zip"]
+    )
+  else:
+    uploaded_files = st.file_uploader(
+        "Upload file-file Excel harian (bisa pilih banyak sekaligus):",
+        type=["xlsx", "xls"],
+        accept_multiple_files=True,
+    )
 
-            if not os.path.exists(template_path):
-              st.error(
-                  "❌ ERROR: File `template_omset.xlsx` tidak ditemukan di"
-                  " dalam repository GitHub!"
+  if st.button("🚀 Jalankan Proses Penggabungan", type="primary"):
+    # Gunakan Temporary Directory supaya bersih dan aman di server cloud
+    with tempfile.TemporaryDirectory() as temp_dir:
+      sumber_data_siap = False
+      logs = []
+
+      if metode_upload == "📁 Upload File ZIP" and uploaded_zip is not None:
+        with st.spinner("Mengekstrak file ZIP..."):
+          with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+          sumber_data_siap = True
+
+      elif (
+          metode_upload == "📄 Upload Banyak File Excel (.xlsx/.xls)"
+          and uploaded_files
+      ):
+        with st.spinner("Menyiapkan file yang di-upload..."):
+          for uf in uploaded_files:
+            temp_file_path = os.path.join(temp_dir, uf.name)
+            with open(temp_file_path, "wb") as f:
+              f.write(uf.getbuffer())
+          sumber_data_siap = True
+      else:
+        st.error("❌ Harap upload file ZIP atau file Excel terlebih dahulu!")
+
+      if sumber_data_siap:
+        with st.spinner("Sedang memproses data omset..."):
+          df_gabungan, logs = proses_gabung_data_dari_folder(
+              temp_dir, jumlah_tanggal, nama_bulan
+          )
+
+          for log in logs:
+            st.text(log)
+
+          if df_gabungan is not None:
+            try:
+              # Ambil template langsung dari repository GitHub
+              template_path = os.path.join(
+                  os.path.dirname(__file__), "template_omset.xlsx"
               )
-            else:
-              # Buat salinan template di memory/temp supaya file asli di repo aman
-              output_file_path = os.path.join(
-                  path_folder, "hasil_template_omset.xlsx"
-              )
-              sh.copy(template_path, output_file_path)
 
-              # Masukkan data gabungan ke file salinan tersebut
-              with pd.ExcelWriter(
-                  output_file_path,
-                  engine="openpyxl",
-                  mode="a",
-                  if_sheet_exists="replace",
-              ) as writer:
-                df_gabungan.to_excel(writer, sheet_name="statement", index=False)
+              if not os.path.exists(template_path):
+                st.error(
+                    "❌ ERROR: File `template_omset.xlsx` belum di-upload ke"
+                    " repository GitHub!"
+                )
+              else:
+                # Simpan hasil gabungan ke file output sementara untuk didownload
+                output_file_path = os.path.join(
+                    temp_dir, "hasil_template_omset.xlsx"
+                )
+                sh.copy(template_path, output_file_path)
 
-              st.success(
-                  "🎉 Proses Selesai! File berhasil digabungkan ke template"
-                  " repository."
-              )
+                with pd.ExcelWriter(
+                    output_file_path,
+                    engine="openpyxl",
+                    mode="a",
+                    if_sheet_exists="replace",
+                ) as writer:
+                  df_gabungan.to_excel(
+                      writer, sheet_name="statement", index=False
+                  )
 
-              with open(output_file_path, "rb") as f:
-                st.download_button(
-                    label="📥 Download Hasil Template Excel",
-                    data=f,
-                    file_name="hasil_template_omset.xlsx",
-                    mime=(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    ),
+                st.success(
+                    "🎉 Proses Selesai! File berhasil digabungkan ke template."
                 )
 
-          except PermissionError:
-            st.error(
-                "❌ ERROR: File Excel sedang dibuka di aplikasi lain (Excel),"
-                " tutup dulu filenya!"
-            )
+                with open(output_file_path, "rb") as f:
+                  st.download_button(
+                      label="📥 Download Hasil Template Excel",
+                      data=f,
+                      file_name="hasil_template_omset.xlsx",
+                      mime=(
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      ),
+                  )
+            except Exception as e:
+              st.error(f"❌ Terjadi kesalahan saat memproses Excel: {e}")
 
 
 with tab2:
-  st.subheader("Update File Excel Target Tertentu")
+  st.subheader("Update File Excel Target Tertentu via Web")
   st.write(
-      "Gunakan fitur ini jika kamu ingin langsung memperbarui file Excel rekap"
-      " tujuan yang berbeda."
+      "Upload file Excel target yang ingin kamu *update* isinya secara"
+      " langsung."
   )
 
-  if "target_file_path" not in st.session_state:
-    st.session_state.target_file_path = ""
-
-  if HAS_TKINTER:
-    if st.button("📂 Pilih File Excel Target via Dialog"):
-      selected_file = pilih_file_target()
-      if selected_file:
-        st.session_state.target_file_path = selected_file
-
-  target_file_path = st.text_input(
-      "Masukkan Path Lengkap File Excel Target untuk Di-update:",
-      value=st.session_state.target_file_path,
-      placeholder="Contoh: C:/Users/Namamu/Documents/rekap_akhir.xlsx",
+  target_file_upload = st.file_uploader(
+      "Upload File Excel Target (.xlsx/.xls):", type=["xlsx", "xls"]
   )
 
-  st.session_state.target_file_path = target_file_path
-
-  if st.button("🔄 Jalankan Update Excel"):
-    if not path_folder or not os.path.exists(path_folder):
-      st.error("❌ ERROR: Path folder sumber data tidak valid!")
-    elif not target_file_path or not os.path.exists(target_file_path):
-      st.error("❌ ERROR: File Excel target tidak ditemukan!")
+  if st.button("🔄 Jalankan Update Excel Target"):
+    if not target_file_upload:
+      st.error("❌ Harap upload file Excel target terlebih dahulu!")
     else:
-      with st.spinner("Sedang memperbarui file Excel..."):
-        df_gabungan, logs = proses_gabung_data(
-            path_folder, jumlah_tanggal, nama_bulan
-        )
-
-        for log in logs:
-          st.text(log)
-
-        if df_gabungan is not None:
-          try:
-            with pd.ExcelWriter(
-                target_file_path,
-                engine="openpyxl",
-                mode="a",
-                if_sheet_exists="replace",
-            ) as writer:
-              df_gabungan.to_excel(writer, sheet_name="statement", index=False)
-
-            st.success(
-                "🎉 Berhasil memperbarui file Excel target di:"
-                f" `{target_file_path}`"
-            )
-
-            with open(target_file_path, "rb") as f:
-              st.download_button(
-                  label="📥 Download File yang Telah Di-update",
-                  data=f,
-                  file_name=os.path.basename(target_file_path),
-                  mime=(
-                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  ),
-              )
-
-          except PermissionError:
-            st.error(
-                "❌ ERROR: File target sedang dibuka di Excel. Tutup filenya"
-                " terlebih dahulu!"
-            )
+      # Kita butuh data harian juga di tab 2, cek apakah user pakai metode zip atau file satuan
+      st.info(
+          "💡 Pastikan data sumber harian sudah disiapkan (gunakan tab Proses"
+          " Baru untuk melakukan proses data)."
+      )
