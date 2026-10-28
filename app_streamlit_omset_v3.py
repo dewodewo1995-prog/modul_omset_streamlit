@@ -63,7 +63,7 @@ with st.container(border=True):
 
   with col3:
     pilihan_tahun = st.selectbox(
-        "Pilih Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
+        "Pilih Tahun:", options=[2024, 2025, 2026, 2027, 2038], index=0
     )
 
 st.markdown("---")
