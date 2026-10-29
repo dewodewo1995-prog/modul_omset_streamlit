@@ -32,40 +32,47 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
 st.markdown("---")
 
 
-# --- PARAMETER PENGATURAN UTAMA ---
-with st.container(border=True):
-  st.subheader("⚙️ Parameter Pengaturan Data")
-  col1, col2, col3 = st.columns(3)
+# --- PARAMETER PENGATURAN UTAMA (COMPACT & DI TENGAH) ---
+col_space1, col_main_param, col_space2 = st.columns([1, 4, 1])
 
-  with col1:
-    jumlah_tanggal = st.selectbox(
-        "Pilih Jumlah Tanggal (1 - 31):", options=list(range(1, 32)), index=0
+with col_main_param:
+  with st.container(border=True):
+    st.markdown(
+        "<h5 style='text-align: center; margin-bottom: 10px;'>⚙️ Parameter"
+        " Pengaturan Data</h5>",
+        unsafe_allow_html=True,
     )
+    p1, p2, p3 = st.columns(3)
 
-  with col2:
-    bulan_dict = {
-        "Januari": ("jan", 1),
-        "Februari": ("feb", 2),
-        "Maret": ("mar", 3),
-        "April": ("apr", 4),
-        "Mei": ("mei", 5),
-        "Juni": ("jun", 6),
-        "Juli": ("jul", 7),
-        "Agustus": ("agu", 8),
-        "September": ("sep", 9),
-        "Oktober": ("okt", 10),
-        "November": ("nov", 11),
-        "Desember": ("des", 12),
-    }
-    pilihan_bulan_nama = st.selectbox(
-        "Pilih Nama Bulan:", options=list(bulan_dict.keys())
-    )
-    nama_bulan, angka_bulan = bulan_dict[pilihan_bulan_nama]
+    with p1:
+      jumlah_tanggal = st.selectbox(
+          "Jumlah Tanggal:", options=list(range(1, 32)), index=0
+      )
 
-  with col3:
-    pilihan_tahun = st.selectbox(
-        "Pilih Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
-    )
+    with p2:
+      bulan_dict = {
+          "Januari": ("jan", 1),
+          "Februari": ("feb", 2),
+          "Maret": ("mar", 3),
+          "April": ("apr", 4),
+          "Mei": ("mei", 5),
+          "Juni": ("jun", 6),
+          "Juli": ("jul", 7),
+          "Agustus": ("agu", 8),
+          "September": ("sep", 9),
+          "Oktober": ("okt", 10),
+          "November": ("nov", 11),
+          "Desember": ("des", 12),
+      }
+      pilihan_bulan_nama = st.selectbox(
+          "Bulan:", options=list(bulan_dict.keys())
+      )
+      nama_bulan, angka_bulan = bulan_dict[pilihan_bulan_nama]
+
+    with p3:
+      pilihan_tahun = st.selectbox(
+          "Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
+      )
 
 st.markdown("---")
 
@@ -169,8 +176,12 @@ with tab1:
               temp_dir, jumlah_tanggal, nama_bulan
           )
 
-          for log in logs:
-            st.text(log)
+          # --- TAMPILKAN LOG DALAM KOTAK TEXTBOX (SCROLLABLE) ---
+          st.text_area(
+              "📋 Log Status Proses Data:",
+              value="\n".join(logs),
+              height=150,
+          )
 
           if df_gabungan is not None:
             try:
@@ -189,7 +200,6 @@ with tab1:
                 )
                 sh.copy(template_path, output_file_path)
 
-                # --- LOAD OPENPYXL & TARGETKAN SHEET ANALISA (KOLOM C, BARIS 8 SAMPAI PENUH) ---
                 wb = openpyxl.load_workbook(output_file_path)
                 if "ANALISA" in wb.sheetnames:
                   ws = wb["ANALISA"]
@@ -213,10 +223,9 @@ with tab1:
                 ]
                 m_str = eng_months[angka_bulan]
 
-                start_row = 8  # Mulai dari baris 8
-                col_index = 3  # Kolom C
+                start_row = 8
+                col_index = 3
 
-                # Mengisi tanggal secara penuh berdasarkan jumlah_tanggal yang dipilih (misal 30/31 hari)
                 for d in range(1, jumlah_tanggal + 1):
                   date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
                   ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
@@ -326,8 +335,12 @@ with tab2:
                 temp_dir, jumlah_tanggal, nama_bulan
             )
 
-            for log in logs:
-              st.text(log)
+            # --- TAMPILKAN LOG DALAM KOTAK TEXTBOX (SCROLLABLE) ---
+            st.text_area(
+                "📋 Log Status Update Target:",
+                value="\n".join(logs),
+                height=150,
+            )
 
             if df_gabungan is not None:
               try:
