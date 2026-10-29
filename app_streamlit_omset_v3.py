@@ -5,6 +5,7 @@ import tempfile
 import zipfile
 import openpyxl
 import pandas as pd
+import rarfile
 import streamlit as st
 
 # Konfigurasi halaman web Streamlit
@@ -14,7 +15,8 @@ st.set_page_config(
 
 st.title("📊 Aplikasi Rekap Omset (Versi Web Cloud)")
 st.write(
-    "Upload file ZIP atau file-file Excel harian langsung melalui browser!"
+    "Upload file arsip (ZIP/RAR) atau file-file Excel harian langsung melalui"
+    " browser!"
 )
 
 
@@ -22,58 +24,13 @@ st.write(
 with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expanded=False):
   st.markdown("""
     1. **Format Penamaan File Harian**: Pastikan file Excel harian menggunakan format penamaan `tanggal_3hurufbulan` (Contoh: `1_okt.xlsx`, `2_okt.xlsx`, dst).
-    2. **Metode Upload Data**: 
-       * Pilih metode **Upload Banyak File Excel** jika ingin memilih dan meng-upload file Excel harian satu per satu sekaligus.
-       * Atau pilih metode **Upload File ZIP** jika file harian sudah dikompres menjadi satu file ZIP/RAR.
-    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan otomatis ter-generate penuh dari tanggal 1 sampai akhir bulan (30/31 hari) sesuai bulan pilihan Anda.
-    4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
-    5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** pada menu *Proses Baru*, atau klik **Jalankan Update Excel Target** pada menu *Update Existing* untuk memproses dan mendownload hasilnya.
+    2. **Langkah Kerja**: 
+       * **Langkah 1**: Lakukan upload data harian terlebih dahulu (bisa pilih metode *Upload File Arsip ZIP/RAR* atau *Banyak File Excel*).
+       * **Langkah 2**: Atur parameter (Jumlah Tanggal proses, Bulan, dan Tahun) pada bagian bawah setelah file ter-upload.
+    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* untuk membuat rekap omset dari awal menggunakan master template. Kolom tanggal (`DATE` mulai dari sel C8) akan otomatis ter-generate penuh dari tanggal 1 sampai akhir bulan (30/31 hari).
+    4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* untuk memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
+    5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** atau **Jalankan Update Excel Target** untuk memproses dan mendownload hasilnya.
     """)
-
-st.markdown("---")
-
-
-# --- PARAMETER PENGATURAN UTAMA (COMPACT & DI TENGAH) ---
-col_space1, col_main_param, col_space2 = st.columns([1, 4, 1])
-
-with col_main_param:
-  with st.container(border=True):
-    st.markdown(
-        "<h5 style='text-align: center; margin-bottom: 10px;'>⚙️ Parameter"
-        " Pengaturan Data</h5>",
-        unsafe_allow_html=True,
-    )
-    p1, p2, p3 = st.columns(3)
-
-    with p1:
-      jumlah_tanggal = st.selectbox(
-          "Jumlah Tanggal (Proses):", options=list(range(1, 32)), index=0
-      )
-
-    with p2:
-      bulan_dict = {
-          "Januari": ("jan", 1),
-          "Februari": ("feb", 2),
-          "Maret": ("mar", 3),
-          "April": ("apr", 4),
-          "Mei": ("mei", 5),
-          "Juni": ("jun", 6),
-          "Juli": ("jul", 7),
-          "Agustus": ("agu", 8),
-          "September": ("sep", 9),
-          "Oktober": ("okt", 10),
-          "November": ("nov", 11),
-          "Desember": ("des", 12),
-      }
-      pilihan_bulan_nama = st.selectbox(
-          "Bulan:", options=list(bulan_dict.keys())
-      )
-      nama_bulan, angka_bulan = bulan_dict[pilihan_bulan_nama]
-
-    with p3:
-      pilihan_tahun = st.selectbox(
-          "Tahun:", options=[2026, 2027, 2028, 2029, 2030], index=0
-      )
 
 st.markdown("---")
 
@@ -117,28 +74,28 @@ tab1, tab2 = st.tabs(
     ["🚀 Proses Baru (Upload Web)", "🔄 Update Excel Existing (Web)"]
 )
 
+# ================= TAB 1: PROSES BARU =================
 with tab1:
   st.subheader("Proses Penggabungan & Template via Web")
   st.write(
-      "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
-      " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi penuh kolom"
-      " DATE dari sel C8 sampai akhir bulan."
+      "**Langkah 1**: Upload data harian Anda di bawah ini, lalu tentukan"
+      " parameter pengaturannya."
   )
 
   metode_upload = st.radio(
       "Pilih Metode Upload Data Harian (Tab 1):",
-      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      ["📁 Upload File Arsip (ZIP / RAR)", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
       key="metode_tab1",
   )
 
-  uploaded_zip = None
+  uploaded_archive = None
   uploaded_files = None
 
-  if metode_upload == "📁 Upload File ZIP":
-    uploaded_zip = st.file_uploader(
-        "Upload file .zip yang berisi file-file harian:",
-        type=["zip"],
-        key="zip_tab1",
+  if metode_upload == "📁 Upload File Arsip (ZIP / RAR)":
+    uploaded_archive = st.file_uploader(
+        "Upload file .zip atau .rar yang berisi file-file harian:",
+        type=["zip", "rar"],
+        key="archive_tab1",
     )
   else:
     uploaded_files = st.file_uploader(
@@ -148,15 +105,80 @@ with tab1:
         key="files_tab1",
     )
 
+  st.markdown("")
+
+  # --- PARAMETER PENGATURAN (DIBAWAH UPLOAD TAB 1) ---
+  with st.container(border=True):
+    st.markdown(
+        "<h6 style='text-align: center; margin-bottom: 5px;'>⚙️ Parameter"
+        " Pengaturan Data</h6>",
+        unsafe_allow_html=True,
+    )
+    p1, p2, p3 = st.columns(3)
+
+    with p1:
+      jumlah_tanggal_t1 = st.selectbox(
+          "Jumlah Tanggal (Proses):",
+          options=list(range(1, 32)),
+          index=0,
+          key="jml_t1",
+      )
+
+    with p2:
+      bulan_dict = {
+          "Januari": ("jan", 1),
+          "Februari": ("feb", 2),
+          "Maret": ("mar", 3),
+          "April": ("apr", 4),
+          "Mei": ("mei", 5),
+          "Juni": ("jun", 6),
+          "Juli": ("jul", 7),
+          "Agustus": ("agu", 8),
+          "September": ("sep", 9),
+          "Oktober": ("okt", 10),
+          "November": ("nov", 11),
+          "Desember": ("des", 12),
+      }
+      pilihan_bulan_nama_t1 = st.selectbox(
+          "Bulan:", options=list(bulan_dict.keys()), key="bln_t1"
+      )
+      nama_bulan_t1, angka_bulan_t1 = bulan_dict[pilihan_bulan_nama_t1]
+
+    with p3:
+      pilihan_tahun_t1 = st.selectbox(
+          "Tahun:",
+          options=[2026, 2027, 2028, 2029, 2030],
+          index=0,
+          key="thn_t1",
+      )
+
+  st.markdown("")
   if st.button("🚀 Jalankan Proses Penggabungan", type="primary"):
     with tempfile.TemporaryDirectory() as temp_dir:
       sumber_data_siap = False
 
-      if metode_upload == "📁 Upload File ZIP" and uploaded_zip is not None:
-        with st.spinner("Mengekstrak file ZIP..."):
-          with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-          sumber_data_siap = True
+      if (
+          metode_upload == "📁 Upload File Arsip (ZIP / RAR)"
+          and uploaded_archive is not None
+      ):
+        with st.spinner("Mengekstrak file arsip..."):
+          archive_path = os.path.join(temp_dir, uploaded_archive.name)
+          with open(archive_path, "wb") as f:
+            f.write(uploaded_archive.getbuffer())
+
+          if uploaded_archive.name.endswith(".zip"):
+            with zipfile.ZipFile(archive_path, "r") as zip_ref:
+              zip_ref.extractall(temp_dir)
+            sumber_data_siap = True
+          elif uploaded_archive.name.endswith(".rar"):
+            try:
+              with rarfile.RarFile(archive_path, "r") as rar_ref:
+                rar_ref.extractall(temp_dir)
+              sumber_data_siap = True
+            except Exception as e:
+              st.error(
+                  f"❌ Gagal mengekstrak file RAR. Pastikan sistem mendukung unrar: {e}"
+              )
 
       elif (
           metode_upload == "📄 Upload Banyak File Excel (.xlsx/.xls)"
@@ -169,15 +191,14 @@ with tab1:
               f.write(uf.getbuffer())
           sumber_data_siap = True
       else:
-        st.error("❌ Harap upload file ZIP atau file Excel terlebih dahulu!")
+        st.error("❌ Harap upload file arsip ZIP/RAR atau file Excel terlebih dahulu!")
 
       if sumber_data_siap:
         with st.spinner("Sedang memproses data omset & update kolom DATE..."):
           df_gabungan, logs = proses_gabung_data_dari_folder(
-              temp_dir, jumlah_tanggal, nama_bulan
+              temp_dir, jumlah_tanggal_t1, nama_bulan_t1
           )
 
-          # --- TAMPILKAN LOG DALAM KOTAK TEXTBOX (SCROLLABLE) ---
           st.text_area(
               "📋 Log Status Proses Data:",
               value="\n".join(logs),
@@ -202,10 +223,11 @@ with tab1:
                 sh.copy(template_path, output_file_path)
 
                 wb = openpyxl.load_workbook(output_file_path)
-                if "ANALISA" in wb.sheetnames:
-                  ws = wb["ANALISA"]
-                else:
-                  ws = wb.active
+                ws = (
+                    wb["ANALISA"]
+                    if "ANALISA" in wb.sheetnames
+                    else wb.active
+                )
 
                 eng_months = [
                     "",
@@ -222,20 +244,17 @@ with tab1:
                     "Nov",
                     "Dec",
                 ]
-                m_str = eng_months[angka_bulan]
+                m_str = eng_months[angka_bulan_t1]
 
-                # --- HITUNG JUMLAH HARI FULL DALAM BULAN TERSEBUT ---
-                # calendar.monthrange mengembalikan (hari_pertama_dalam_minggu, jumlah_hari_dalam_bulan)
                 _, total_hari_bulan_ini = calendar.monthrange(
-                    pilihan_tahun, angka_bulan
+                    pilihan_tahun_t1, angka_bulan_t1
                 )
 
                 start_row = 8
                 col_index = 3
 
-                # Cetak tanggal full dari 1 sampai jumlah hari maksimal bulan tersebut
                 for d in range(1, total_hari_bulan_ini + 1):
-                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
+                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun_t1}"
                   ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
 
                 wb.save(output_file_path)
@@ -253,14 +272,14 @@ with tab1:
                 st.success(
                     "🎉 Proses Selesai! Kolom DATE dari C8 sampai tanggal"
                     f" {total_hari_bulan_ini} berhasil di-generate penuh"
-                    f" untuk bulan {pilihan_bulan_nama} {pilihan_tahun}."
+                    f" untuk bulan {pilihan_bulan_nama_t1} {pilihan_tahun_t1}."
                 )
 
                 with open(output_file_path, "rb") as f:
                   st.download_button(
                       label="📥 Download Hasil Template Excel",
                       data=f,
-                      file_name=f"rekap_omset_{pilihan_bulan_nama}_{pilihan_tahun}.xlsx",
+                      file_name=f"rekap_omset_{pilihan_bulan_nama_t1}_{pilihan_tahun_t1}.xlsx",
                       mime=(
                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                       ),
@@ -269,11 +288,12 @@ with tab1:
               st.error(f"❌ Terjadi kesalahan saat memproses Excel: {e}")
 
 
+# ================= TAB 2: UPDATE EXISTING =================
 with tab2:
   st.subheader("Update File Excel Target Tertentu via Web")
   st.write(
-      "Upload file Excel target yang ingin kamu *update* isinya secara"
-      " langsung beserta data harian sumbernya."
+      "**Langkah 1**: Upload file Excel target beserta data harian sumbernya"
+      " di bawah ini."
   )
 
   target_file_upload = st.file_uploader(
@@ -284,18 +304,18 @@ with tab2:
 
   metode_upload_tab2 = st.radio(
       "Pilih Metode Upload Data Harian (Tab 2):",
-      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      ["📁 Upload File Arsip (ZIP / RAR)", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
       key="metode_tab2",
   )
 
-  uploaded_zip_tab2 = None
+  uploaded_archive_tab2 = None
   uploaded_files_tab2 = None
 
-  if metode_upload_tab2 == "📁 Upload File ZIP":
-    uploaded_zip_tab2 = st.file_uploader(
-        "Upload file .zip data harian untuk update target:",
-        type=["zip"],
-        key="zip_tab2",
+  if metode_upload_tab2 == "📁 Upload File Arsip (ZIP / RAR)":
+    uploaded_archive_tab2 = st.file_uploader(
+        "Upload file .zip atau .rar data harian untuk update target:",
+        type=["zip", "rar"],
+        key="archive_tab2",
     )
   else:
     uploaded_files_tab2 = st.file_uploader(
@@ -305,6 +325,40 @@ with tab2:
         key="files_tab2",
     )
 
+  st.markdown("")
+
+  # --- PARAMETER PENGATURAN (DIBAWAH UPLOAD TAB 2) ---
+  with st.container(border=True):
+    st.markdown(
+        "<h6 style='text-align: center; margin-bottom: 5px;'>⚙️ Parameter"
+        " Pengaturan Data (Target)</h6>",
+        unsafe_allow_html=True,
+    )
+    tp1, tp2, tp3 = st.columns(3)
+
+    with tp1:
+      jumlah_tanggal_t2 = st.selectbox(
+          "Jumlah Tanggal (Proses):",
+          options=list(range(1, 32)),
+          index=0,
+          key="jml_t2",
+      )
+
+    with tp2:
+      pilihan_bulan_nama_t2 = st.selectbox(
+          "Bulan:", options=list(bulan_dict.keys()), key="bln_t2"
+      )
+      nama_bulan_t2, angka_bulan_t2 = bulan_dict[pilihan_bulan_nama_t2]
+
+    with tp3:
+      pilihan_tahun_t2 = st.selectbox(
+          "Tahun:",
+          options=[2026, 2027, 2028, 2029, 2030],
+          index=0,
+          key="thn_t2",
+      )
+
+  st.markdown("")
   if st.button("🔄 Jalankan Update Excel Target", type="primary"):
     if not target_file_upload:
       st.error("❌ Harap upload file Excel target terlebih dahulu!")
@@ -313,13 +367,27 @@ with tab2:
         sumber_data_siap = False
 
         if (
-            metode_upload_tab2 == "📁 Upload File ZIP"
-            and uploaded_zip_tab2 is not None
+            metode_upload_tab2 == "📁 Upload File Arsip (ZIP / RAR)"
+            and uploaded_archive_tab2 is not None
         ):
-          with st.spinner("Mengekstrak file ZIP..."):
-            with zipfile.ZipFile(uploaded_zip_tab2, "r") as zip_ref:
-              zip_ref.extractall(temp_dir)
-            sumber_data_siap = True
+          with st.spinner("Mengekstrak file arsip..."):
+            archive_path = os.path.join(temp_dir, uploaded_archive_tab2.name)
+            with open(archive_path, "wb") as f:
+              f.write(uploaded_archive_tab2.getbuffer())
+
+            if uploaded_archive_tab2.name.endswith(".zip"):
+              with zipfile.ZipFile(archive_path, "r") as zip_ref:
+                zip_ref.extractall(temp_dir)
+              sumber_data_siap = True
+            elif uploaded_archive_tab2.name.endswith(".rar"):
+              try:
+                with rarfile.RarFile(archive_path, "r") as rar_ref:
+                  rar_ref.extractall(temp_dir)
+                sumber_data_siap = True
+              except Exception as e:
+                st.error(
+                    f"❌ Gagal mengekstrak file RAR. Pastikan sistem mendukung unrar: {e}"
+                )
 
         elif (
             metode_upload_tab2 == "📄 Upload Banyak File Excel (.xlsx/.xls)"
@@ -333,17 +401,16 @@ with tab2:
             sumber_data_siap = True
         else:
           st.error(
-              "❌ Harap upload file ZIP atau file Excel sumber harian terlebih"
-              " dahulu!"
+              "❌ Harap upload file arsip ZIP/RAR atau file Excel sumber harian"
+              " terlebih dahulu!"
           )
 
         if sumber_data_siap:
           with st.spinner("Sedang memperbarui file Excel target..."):
             df_gabungan, logs = proses_gabung_data_dari_folder(
-                temp_dir, jumlah_tanggal, nama_bulan
+                temp_dir, jumlah_tanggal_t2, nama_bulan_t2
             )
 
-            # --- TAMPILKAN LOG DALAM KOTAK TEXTBOX (SCROLLABLE) ---
             st.text_area(
                 "📋 Log Status Update Target:",
                 value="\n".join(logs),
@@ -359,10 +426,11 @@ with tab2:
                   f.write(target_file_upload.getbuffer())
 
                 wb = openpyxl.load_workbook(target_path_local)
-                if "ANALISA" in wb.sheetnames:
-                  ws = wb["ANALISA"]
-                else:
-                  ws = wb.active
+                ws = (
+                    wb["ANALISA"]
+                    if "ANALISA" in wb.sheetnames
+                    else wb.active
+                )
 
                 eng_months = [
                     "",
@@ -379,16 +447,16 @@ with tab2:
                     "Nov",
                     "Dec",
                 ]
-                m_str = eng_months[angka_bulan]
+                m_str = eng_months[angka_bulan_t2]
 
                 _, total_hari_bulan_ini = calendar.monthrange(
-                    pilihan_tahun, angka_bulan
+                    pilihan_tahun_t2, angka_bulan_t2
                 )
                 start_row = 8
                 col_index = 3
 
                 for d in range(1, total_hari_bulan_ini + 1):
-                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
+                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun_t2}"
                   ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
 
                 wb.save(target_path_local)
