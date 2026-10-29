@@ -1,3 +1,4 @@
+import calendar
 import os
 import shutil as sh
 import tempfile
@@ -24,7 +25,7 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
     2. **Metode Upload Data**: 
        * Pilih metode **Upload Banyak File Excel** jika ingin memilih dan meng-upload file Excel harian satu per satu sekaligus.
        * Atau pilih metode **Upload File ZIP** jika file harian sudah dikompres menjadi satu file ZIP/RAR.
-    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan ter-generate otomatis penuh sampai tanggal terakhir bulan pilihan Anda.
+    3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* jika Anda ingin membuat rekap omset dari awal menggunakan file master template dari sistem. Kolom tanggal (`DATE` mulai dari sel C8) akan otomatis ter-generate penuh dari tanggal 1 sampai akhir bulan (30/31 hari) sesuai bulan pilihan Anda.
     4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* jika Anda ingin memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
     5. **Eksekusi Proses**: Klik tombol **Jalankan Proses Penggabungan** pada menu *Proses Baru*, atau klik **Jalankan Update Excel Target** pada menu *Update Existing* untuk memproses dan mendownload hasilnya.
     """)
@@ -46,7 +47,7 @@ with col_main_param:
 
     with p1:
       jumlah_tanggal = st.selectbox(
-          "Jumlah Tanggal:", options=list(range(1, 32)), index=0
+          "Jumlah Tanggal (Proses):", options=list(range(1, 32)), index=0
       )
 
     with p2:
@@ -121,7 +122,7 @@ with tab1:
   st.write(
       "Pilih metode upload data harian kamu di bawah ini, lalu sistem akan"
       " memasukkannya ke `template_omset.xlsx` dan otomatis mengisi penuh kolom"
-      " DATE dari sel C8."
+      " DATE dari sel C8 sampai akhir bulan."
   )
 
   metode_upload = st.radio(
@@ -223,10 +224,17 @@ with tab1:
                 ]
                 m_str = eng_months[angka_bulan]
 
+                # --- HITUNG JUMLAH HARI FULL DALAM BULAN TERSEBUT ---
+                # calendar.monthrange mengembalikan (hari_pertama_dalam_minggu, jumlah_hari_dalam_bulan)
+                _, total_hari_bulan_ini = calendar.monthrange(
+                    pilihan_tahun, angka_bulan
+                )
+
                 start_row = 8
                 col_index = 3
 
-                for d in range(1, jumlah_tanggal + 1):
+                # Cetak tanggal full dari 1 sampai jumlah hari maksimal bulan tersebut
+                for d in range(1, total_hari_bulan_ini + 1):
                   date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
                   ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
 
@@ -244,7 +252,7 @@ with tab1:
 
                 st.success(
                     "🎉 Proses Selesai! Kolom DATE dari C8 sampai tanggal"
-                    f" {jumlah_tanggal} berhasil di-generate otomatis penuh"
+                    f" {total_hari_bulan_ini} berhasil di-generate penuh"
                     f" untuk bulan {pilihan_bulan_nama} {pilihan_tahun}."
                 )
 
@@ -349,6 +357,41 @@ with tab2:
                 )
                 with open(target_path_local, "wb") as f:
                   f.write(target_file_upload.getbuffer())
+
+                wb = openpyxl.load_workbook(target_path_local)
+                if "ANALISA" in wb.sheetnames:
+                  ws = wb["ANALISA"]
+                else:
+                  ws = wb.active
+
+                eng_months = [
+                    "",
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                ]
+                m_str = eng_months[angka_bulan]
+
+                _, total_hari_bulan_ini = calendar.monthrange(
+                    pilihan_tahun, angka_bulan
+                )
+                start_row = 8
+                col_index = 3
+
+                for d in range(1, total_hari_bulan_ini + 1):
+                  date_str = f"{d:02d}-{m_str}-{pilihan_tahun}"
+                  ws.cell(row=start_row + d - 1, column=col_index, value=date_str)
+
+                wb.save(target_path_local)
 
                 with pd.ExcelWriter(
                     target_path_local,
