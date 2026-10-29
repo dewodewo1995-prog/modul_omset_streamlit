@@ -5,7 +5,6 @@ import tempfile
 import zipfile
 import openpyxl
 import pandas as pd
-import rarfile
 import streamlit as st
 
 # Konfigurasi halaman web Streamlit
@@ -15,7 +14,7 @@ st.set_page_config(
 
 st.title("📊 Aplikasi Rekap Omset (Versi Web Cloud)")
 st.write(
-    "Upload file arsip (ZIP/RAR) atau file-file Excel harian langsung melalui"
+    "Upload file arsip ZIP atau file-file Excel harian langsung melalui"
     " browser!"
 )
 
@@ -25,7 +24,7 @@ with st.expander("📖 Tata Cara Cepat Penggunaan (Klik untuk Membaca)", expande
   st.markdown("""
     1. **Format Penamaan File Harian**: Pastikan file Excel harian menggunakan format penamaan `tanggal_3hurufbulan` (Contoh: `1_okt.xlsx`, `2_okt.xlsx`, dst).
     2. **Langkah Kerja**: 
-       * **Langkah 1**: Lakukan upload data harian terlebih dahulu (bisa pilih metode *Upload File Arsip ZIP/RAR* atau *Banyak File Excel*).
+       * **Langkah 1**: Lakukan upload data harian terlebih dahulu (bisa pilih metode *Upload File ZIP* atau *Banyak File Excel*).
        * **Langkah 2**: Atur parameter (Jumlah Tanggal proses, Bulan, dan Tahun) pada bagian bawah setelah file ter-upload.
     3. **Menu Proses Baru**: Pilih tab *Proses Baru (Upload Web)* untuk membuat rekap omset dari awal menggunakan master template. Kolom tanggal (`DATE` mulai dari sel C8) akan otomatis ter-generate penuh dari tanggal 1 sampai akhir bulan (30/31 hari).
     4. **Menu Update Excel Existing**: Pilih tab *Update Excel Existing (Web)* untuk memperbarui file rekap omset yang sudah pernah dibuat sebelumnya.
@@ -84,18 +83,18 @@ with tab1:
 
   metode_upload = st.radio(
       "Pilih Metode Upload Data Harian (Tab 1):",
-      ["📁 Upload File Arsip (ZIP / RAR)", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
       key="metode_tab1",
   )
 
-  uploaded_archive = None
+  uploaded_zip = None
   uploaded_files = None
 
-  if metode_upload == "📁 Upload File Arsip (ZIP / RAR)":
-    uploaded_archive = st.file_uploader(
-        "Upload file .zip atau .rar yang berisi file-file harian:",
-        type=["zip", "rar"],
-        key="archive_tab1",
+  if metode_upload == "📁 Upload File ZIP":
+    uploaded_zip = st.file_uploader(
+        "Upload file .zip yang berisi file-file harian:",
+        type=["zip"],
+        key="zip_tab1",
     )
   else:
     uploaded_files = st.file_uploader(
@@ -157,28 +156,11 @@ with tab1:
     with tempfile.TemporaryDirectory() as temp_dir:
       sumber_data_siap = False
 
-      if (
-          metode_upload == "📁 Upload File Arsip (ZIP / RAR)"
-          and uploaded_archive is not None
-      ):
-        with st.spinner("Mengekstrak file arsip..."):
-          archive_path = os.path.join(temp_dir, uploaded_archive.name)
-          with open(archive_path, "wb") as f:
-            f.write(uploaded_archive.getbuffer())
-
-          if uploaded_archive.name.endswith(".zip"):
-            with zipfile.ZipFile(archive_path, "r") as zip_ref:
-              zip_ref.extractall(temp_dir)
-            sumber_data_siap = True
-          elif uploaded_archive.name.endswith(".rar"):
-            try:
-              with rarfile.RarFile(archive_path, "r") as rar_ref:
-                rar_ref.extractall(temp_dir)
-              sumber_data_siap = True
-            except Exception as e:
-              st.error(
-                  f"❌ Gagal mengekstrak file RAR. Pastikan sistem mendukung unrar: {e}"
-              )
+      if metode_upload == "📁 Upload File ZIP" and uploaded_zip is not None:
+        with st.spinner("Mengekstrak file ZIP..."):
+          with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+          sumber_data_siap = True
 
       elif (
           metode_upload == "📄 Upload Banyak File Excel (.xlsx/.xls)"
@@ -191,7 +173,7 @@ with tab1:
               f.write(uf.getbuffer())
           sumber_data_siap = True
       else:
-        st.error("❌ Harap upload file arsip ZIP/RAR atau file Excel terlebih dahulu!")
+        st.error("❌ Harap upload file ZIP atau file Excel terlebih dahulu!")
 
       if sumber_data_siap:
         with st.spinner("Sedang memproses data omset & update kolom DATE..."):
@@ -304,18 +286,18 @@ with tab2:
 
   metode_upload_tab2 = st.radio(
       "Pilih Metode Upload Data Harian (Tab 2):",
-      ["📁 Upload File Arsip (ZIP / RAR)", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
+      ["📁 Upload File ZIP", "📄 Upload Banyak File Excel (.xlsx/.xls)"],
       key="metode_tab2",
   )
 
-  uploaded_archive_tab2 = None
+  uploaded_zip_tab2 = None
   uploaded_files_tab2 = None
 
-  if metode_upload_tab2 == "📁 Upload File Arsip (ZIP / RAR)":
-    uploaded_archive_tab2 = st.file_uploader(
-        "Upload file .zip atau .rar data harian untuk update target:",
-        type=["zip", "rar"],
-        key="archive_tab2",
+  if metode_upload_tab2 == "📁 Upload File ZIP":
+    uploaded_zip_tab2 = st.file_uploader(
+        "Upload file .zip data harian untuk update target:",
+        type=["zip"],
+        key="zip_tab2",
     )
   else:
     uploaded_files_tab2 = st.file_uploader(
@@ -367,27 +349,13 @@ with tab2:
         sumber_data_siap = False
 
         if (
-            metode_upload_tab2 == "📁 Upload File Arsip (ZIP / RAR)"
-            and uploaded_archive_tab2 is not None
+            metode_upload_tab2 == "📁 Upload File ZIP"
+            and uploaded_zip_tab2 is not None
         ):
-          with st.spinner("Mengekstrak file arsip..."):
-            archive_path = os.path.join(temp_dir, uploaded_archive_tab2.name)
-            with open(archive_path, "wb") as f:
-              f.write(uploaded_archive_tab2.getbuffer())
-
-            if uploaded_archive_tab2.name.endswith(".zip"):
-              with zipfile.ZipFile(archive_path, "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
-              sumber_data_siap = True
-            elif uploaded_archive_tab2.name.endswith(".rar"):
-              try:
-                with rarfile.RarFile(archive_path, "r") as rar_ref:
-                  rar_ref.extractall(temp_dir)
-                sumber_data_siap = True
-              except Exception as e:
-                st.error(
-                    f"❌ Gagal mengekstrak file RAR. Pastikan sistem mendukung unrar: {e}"
-                )
+          with st.spinner("Mengekstrak file ZIP..."):
+            with zipfile.ZipFile(uploaded_zip_tab2, "r") as zip_ref:
+              zip_ref.extractall(temp_dir)
+            sumber_data_siap = True
 
         elif (
             metode_upload_tab2 == "📄 Upload Banyak File Excel (.xlsx/.xls)"
@@ -401,8 +369,8 @@ with tab2:
             sumber_data_siap = True
         else:
           st.error(
-              "❌ Harap upload file arsip ZIP/RAR atau file Excel sumber harian"
-              " terlebih dahulu!"
+              "❌ Harap upload file ZIP atau file Excel sumber harian terlebih"
+              " dahulu!"
           )
 
         if sumber_data_siap:
